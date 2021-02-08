@@ -17,7 +17,12 @@ import javax.xml.parsers.DocumentBuilderFactory
 val MSG_EMPTY = PlainText("")
 
 
-suspend fun protoMessageToMiraiMessage(msgList: List<BMessage>, bot: Bot, contact: Contact, notConvert: Boolean): List<Message> {
+suspend fun protoMessageToMiraiMessage(
+    msgList: List<BMessage>,
+    bot: Bot,
+    contact: Contact,
+    notConvert: Boolean
+): List<Message> {
     val messageChain = mutableListOf<Message>()
     msgList.forEach {
         when (it.type) {
@@ -49,8 +54,12 @@ fun protoTextToMiraiText(dataMap: Map<String, String>): Message {
 suspend fun protoImageToMiraiImage(dataMap: Map<String, String>, contact: Contact): Message {
     return try {
         withContext(Dispatchers.IO) {
-            val img = contact.uploadImage(URL(dataMap["url"] ?: dataMap["file"]
-            ?: "").openConnection().getInputStream())
+            val img = contact.uploadImage(
+                URL(
+                    dataMap["url"] ?: dataMap["file"]
+                    ?: ""
+                ).openConnection().getInputStream()
+            )
             if (dataMap["type"] == "flash") img.flash() else img
         }
     } catch (e: Exception) {
@@ -63,7 +72,7 @@ fun protoAtToMiraiAt(dataMap: Map<String, String>, bot: Bot, contact: Contact): 
         AtAll
     else
         dataMap["qq"]?.toLong()?.let { userId -> bot.getGroup(contact.id)?.get(userId)?.let { At(it) } }
-                ?: MSG_EMPTY
+            ?: MSG_EMPTY
 }
 
 fun protoFaceToMiraiFace(dataMap: Map<String, String>): Message {
@@ -151,8 +160,8 @@ suspend fun MessageChain.toRawMessage(): String {
 
 suspend fun MessageChain.toOnebotMessage(): List<BMessage> {
     val messageChain = mutableListOf<BMessage>()
-    this.forEach { content ->
-        val message = when (content) {
+    messageChain.addAll(this.map { content ->
+        when (content) {
             is At -> BMessage.newBuilder().setType("at").putAllData(mapOf("qq" to content.target.toString())).build()
             is PlainText -> BMessage.newBuilder().setType("text").putAllData(mapOf("text" to content.content)).build()
             is Face -> BMessage.newBuilder().setType("face").putAllData(mapOf("id" to content.id.toString())).build()
@@ -160,7 +169,8 @@ suspend fun MessageChain.toOnebotMessage(): List<BMessage> {
             is Voice -> BMessage.newBuilder().setType("record").putAllData(mapOf("file" to content.fileName)).build()
             else -> BMessage.newBuilder().setType("unknown").build()
         }
-        messageChain.add(message)
-    }
+    }.filter {
+        it.type != "unknown"
+    })
     return messageChain
 }
